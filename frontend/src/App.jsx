@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, clearCredentials, setCredentials } from './api.js'
+import { api, clearCredentials } from './api.js'
+import AuthDialog from './components/AuthDialog.jsx'
+import ModerationPage from './components/ModerationPage.jsx'
+import NotificationsMenu from './components/NotificationsMenu.jsx'
+import PostCard from './components/PostCard.jsx'
+import PostDetail from './components/PostDetail.jsx'
+import PostDialog from './components/PostDialog.jsx'
 
-const emptyPost = { title: '', content: '', categoryId: '' }
-
-function formatDate(value) {
-  return new Intl.DateTimeFormat('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
-}
+const POLL_INTERVAL = 30000
 
 function App() {
   const [user, setUser] = useState(null)
@@ -15,6 +17,10 @@ function App() {
   const [filters, setFilters] = useState({ keyword: '', categoryId: '' })
   const [dialog, setDialog] = useState(null)
   const [notice, setNotice] = useState('')
+  const [view, setView] = useState('home')
+  const [moderationPostId, setModerationPostId] = useState(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
 
   const loadPosts = useCallback(async () => {
     const query = new URLSearchParams()
@@ -27,6 +33,15 @@ function App() {
       setNotice(error.message)
     }
   }, [filters])
+
+  const refreshUnread = useCallback(async () => {
+    try {
+      const result = await api('/notifications/unread-count')
+      setUnreadCount(result?.count ?? 0)
+    } catch {
+      // Lỗi khi cập nhật định kỳ không cần làm phiền người dùng
+    }
+  }, [])
 
   useEffect(() => {
     api('/categories').then(setCategories).catch((error) => setNotice(error.message))
@@ -44,30 +59,63 @@ function App() {
     return () => { active = false }
   }, [filters])
 
+  useEffect(() => {
+    if (!user) return undefined
+    let active = true
+    const poll = () => api('/notifications/unread-count')
+      .then((result) => { if (active) setUnreadCount(result?.count ?? 0) })
+      .catch(() => {}) // Lỗi khi cập nhật định kỳ không cần làm phiền người dùng
+    poll()
+    const timer = setInterval(poll, POLL_INTERVAL)
+    return () => { active = false; clearInterval(timer) }
+  }, [user])
+
   async function openPost(id) {
     try {
-      setSelectedPost(await api(`/posts/${id}`))
+      const post = await api(`/posts/${id}`)
+      setSelectedPost(post)
+      setView('home')
     } catch (error) {
       setNotice(error.message)
     }
+  }
+
+  function goHome() {
+    setView('home')
+    setSelectedPost(null)
+    loadPosts()
+  }
+
+  function goModeration(postId = null) {
+    setSelectedPost(null)
+    setModerationPostId(postId)
+    setNotificationsOpen(false)
+    setView('moderation')
   }
 
   function logout() {
     clearCredentials()
     setUser(null)
     setSelectedPost(null)
+    setView('home')
+    setUnreadCount(0)
+    setNotificationsOpen(false)
     setNotice('Đã đăng xuất')
+    loadPosts()
   }
 
   async function refreshSelected() {
     if (selectedPost) await openPost(selectedPost.id)
     await loadPosts()
+    if (user) await refreshUnread()
   }
+
+  const isAdmin = user?.role === 'ADMIN'
 
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand" onClick={() => setSelectedPost(null)}>
+        <button className="brand" onClick={goHome}>
           <span className="brand-mark">C</span>
           <span>Campus Hub</span>
         </button>
@@ -75,6 +123,17 @@ function App() {
           {user ? (
             <>
               <span className="user-name">Xin chào, {user.displayName}</span>
+              {isAdmin && (view === 'moderation'
+                ? <button className="button ghost" onClick={goHome}>Trang chủ</button>
+                : <button className="button ghost" onClick={() => goModeration()}>Kiểm duyệt</button>)}
+              <div className="notif-wrap">
+                <button className="button secondary" aria-haspopup="true" aria-expanded={notificationsOpen}
+                  onClick={() => setNotificationsOpen((open) => !open)}>
+                  Thông báo ({unreadCount})
+                </button>
+                {notificationsOpen && <NotificationsMenu onClose={() => setNotificationsOpen(false)}
+                  onOpenPost={openPost} onChanged={refreshUnread} />}
+              </div>
               <button className="button ghost" onClick={() => setDialog('post')}>Đăng bài</button>
               <button className="button secondary" onClick={logout}>Đăng xuất</button>
             </>
@@ -86,10 +145,13 @@ function App() {
 
       <main>
         {notice && <div className="notice" onClick={() => setNotice('')}>{notice}</div>}
-        {selectedPost ? (
+        {view === 'moderation' ? (
+          <ModerationPage key={moderationPostId ?? 'none'} user={user} initialPostId={moderationPostId}
+            setNotice={setNotice} />
+        ) : selectedPost ? (
           <PostDetail post={selectedPost} user={user} onBack={() => setSelectedPost(null)}
             onChanged={refreshSelected} onDeleted={() => { setSelectedPost(null); loadPosts() }}
-            setNotice={setNotice} />
+            onModerate={goModeration} setNotice={setNotice} />
         ) : (
           <>
             <section className="hero">
@@ -112,7 +174,7 @@ function App() {
             </section>
 
             <section className="post-grid">
-              {posts.map((post) => <PostCard key={post.id} post={post} onOpen={openPost} />)}
+              {posts.map((post) => <PostCard key={post.id} post={post} user={user} onOpen={openPost} />)}
               {!posts.length && <div className="empty">Chưa có bài đăng phù hợp.</div>}
             </section>
           </>
@@ -128,163 +190,6 @@ function App() {
         onSaved={() => { setDialog(null); setNotice('Đã đăng bài'); loadPosts() }} />}
     </div>
   )
-}
-
-function PostCard({ post, onOpen }) {
-  return (
-    <article className="post-card" onClick={() => onOpen(post.id)}>
-      <div className="card-top"><span className="tag">{post.category.name}</span><span>{formatDate(post.createdAt)}</span></div>
-      <h2>{post.title}</h2>
-      <p>{post.content}</p>
-      <div className="card-footer">
-        <span>{post.author.displayName}</span>
-        <span>♥ {post.reactionCount} · {post.commentCount} bình luận</span>
-      </div>
-    </article>
-  )
-}
-
-function PostDetail({ post, user, onBack, onChanged, onDeleted, setNotice }) {
-  const [comment, setComment] = useState('')
-  const canManage = user && (user.id === post.author.id || user.role === 'ADMIN')
-
-  async function act(action, success) {
-    try {
-      await action()
-      setNotice(success)
-      await onChanged()
-    } catch (error) {
-      setNotice(error.message)
-    }
-  }
-
-  return (
-    <section className="detail">
-      <button className="back" onClick={onBack}>← Quay lại danh sách</button>
-      <div className="detail-card">
-        <div className="card-top"><span className="tag">{post.category.name}</span><span>{formatDate(post.createdAt)}</span></div>
-        <h1>{post.title}</h1>
-        <p className="author">Đăng bởi {post.author.displayName} · Trạng thái: {post.status}</p>
-        <div className="content">{post.content}</div>
-        <div className="actions">
-          <button className={`button ${post.reactedByCurrentUser ? 'primary' : 'secondary'}`} disabled={!user}
-            onClick={() => act(() => api(`/posts/${post.id}/reaction`, { method: 'POST' }), 'Đã cập nhật quan tâm')}>
-            ♥ {post.reactionCount} quan tâm
-          </button>
-          {canManage && post.status !== 'RESOLVED' && <button className="button secondary"
-            onClick={() => act(() => api(`/posts/${post.id}/status`, {
-              method: 'PATCH', body: JSON.stringify({ status: 'RESOLVED' }),
-            }), 'Đã đánh dấu hoàn tất')}>Đánh dấu hoàn tất</button>}
-          {user?.role === 'ADMIN' && post.status !== 'HIDDEN' && <button className="button secondary"
-            onClick={() => act(() => api(`/posts/${post.id}/status`, {
-              method: 'PATCH', body: JSON.stringify({ status: 'HIDDEN' }),
-            }), 'Đã ẩn bài đăng')}>Ẩn bài</button>}
-          {canManage && <button className="button danger" onClick={async () => {
-            if (!window.confirm('Xóa bài đăng này?')) return
-            try {
-              await api(`/posts/${post.id}`, { method: 'DELETE' })
-              setNotice('Đã xóa bài đăng')
-              onDeleted()
-            } catch (error) {
-              setNotice(error.message)
-            }
-          }}>Xóa bài</button>}
-        </div>
-      </div>
-
-      <div className="comments">
-        <h2>Bình luận ({post.commentCount})</h2>
-        {user ? <form onSubmit={(event) => {
-          event.preventDefault()
-          act(() => api(`/posts/${post.id}/comments`, { method: 'POST', body: JSON.stringify({ content: comment }) }),
-            'Đã thêm bình luận').then(() => setComment(''))
-        }}>
-          <textarea value={comment} onChange={(event) => setComment(event.target.value)}
-            placeholder="Viết bình luận..." required maxLength="1000" />
-          <button className="button primary">Gửi bình luận</button>
-        </form> : <p className="muted">Đăng nhập để bình luận hoặc bày tỏ quan tâm.</p>}
-        <div className="comment-list">
-          {post.comments.map((item) => <div className="comment" key={item.id}>
-            <strong>{item.author.displayName}</strong><span>{formatDate(item.createdAt)}</span><p>{item.content}</p>
-          </div>)}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function AuthDialog({ onClose, onLogin }) {
-  const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ username: '', displayName: '', password: '' })
-  const [error, setError] = useState('')
-
-  async function submit(event) {
-    event.preventDefault()
-    try {
-      if (mode === 'register') {
-        await api('/auth/register', { method: 'POST', body: JSON.stringify(form) })
-      }
-      setCredentials(form.username, form.password)
-      onLogin(await api('/auth/me'))
-    } catch (requestError) {
-      clearCredentials()
-      setError(requestError.message)
-    }
-  }
-
-  return <Dialog title={mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'} onClose={onClose}>
-    <form className="form" onSubmit={submit}>
-      {error && <p className="form-error">{error}</p>}
-      <label>Tên đăng nhập<input required minLength="3" value={form.username}
-        onChange={(event) => setForm({ ...form, username: event.target.value })} /></label>
-      {mode === 'register' && <label>Tên hiển thị<input required value={form.displayName}
-        onChange={(event) => setForm({ ...form, displayName: event.target.value })} /></label>}
-      <label>Mật khẩu<input required minLength="6" type="password" value={form.password}
-        onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
-      <button className="button primary">{mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}</button>
-      <button type="button" className="text-button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError('') }}>
-        {mode === 'login' ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}
-      </button>
-    </form>
-  </Dialog>
-}
-
-function PostDialog({ categories, onClose, onSaved }) {
-  const [form, setForm] = useState(emptyPost)
-  const [error, setError] = useState('')
-  async function submit(event) {
-    event.preventDefault()
-    try {
-      await api('/posts', { method: 'POST', body: JSON.stringify({ ...form, categoryId: Number(form.categoryId) }) })
-      onSaved()
-    } catch (requestError) {
-      setError(requestError.message)
-    }
-  }
-  return <Dialog title="Tạo bài đăng" onClose={onClose}>
-    <form className="form" onSubmit={submit}>
-      {error && <p className="form-error">{error}</p>}
-      <label>Tiêu đề<input required maxLength="160" value={form.title}
-        onChange={(event) => setForm({ ...form, title: event.target.value })} /></label>
-      <label>Chuyên mục<select required value={form.categoryId}
-        onChange={(event) => setForm({ ...form, categoryId: event.target.value })}>
-        <option value="">Chọn chuyên mục</option>
-        {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-      </select></label>
-      <label>Nội dung<textarea required maxLength="10000" rows="7" value={form.content}
-        onChange={(event) => setForm({ ...form, content: event.target.value })} /></label>
-      <button className="button primary">Đăng bài</button>
-    </form>
-  </Dialog>
-}
-
-function Dialog({ title, onClose, children }) {
-  return <div className="dialog-backdrop" onMouseDown={onClose}>
-    <section className="dialog" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
-      <div className="dialog-title"><h2>{title}</h2><button onClick={onClose} aria-label="Đóng">×</button></div>
-      {children}
-    </section>
-  </div>
 }
 
 export default App
