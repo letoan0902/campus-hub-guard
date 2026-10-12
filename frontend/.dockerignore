@@ -1,3 +1,11 @@
-anode_modules
-dist
-.idea
+# Không đưa các thư mục sinh ra khi build hoặc tệp không cần thiết vào build context.
+node_modules/
+dist/
+.vite/
+.git
+.gitignore
+*.md
+*.log
+.env
+Dockerfile
+.dockerignore
