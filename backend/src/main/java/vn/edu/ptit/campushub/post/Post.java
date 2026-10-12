@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import vn.edu.ptit.campushub.category.Category;
+import vn.edu.ptit.campushub.moderation.ModerationStatus;
 import vn.edu.ptit.campushub.user.User;
 
 @Entity
@@ -32,6 +33,10 @@ public class Post {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private PostStatus status = PostStatus.PUBLISHED;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ModerationStatus moderationStatus = ModerationStatus.NORMAL;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id")
@@ -74,10 +79,20 @@ public class Post {
         this.updatedAt = Instant.now();
     }
 
+    public void changeModerationStatus(ModerationStatus moderationStatus) {
+        this.moderationStatus = moderationStatus;
+    }
+
+    /** Bài bị ẩn hoặc khóa bởi quản trị viên thì không cho tương tác. */
+    public boolean isLocked() {
+        return moderationStatus == ModerationStatus.HIDDEN || moderationStatus == ModerationStatus.LOCKED;
+    }
+
     public Long getId() { return id; }
     public String getTitle() { return title; }
     public String getContent() { return content; }
     public PostStatus getStatus() { return status; }
+    public ModerationStatus getModerationStatus() { return moderationStatus; }
     public Category getCategory() { return category; }
     public User getAuthor() { return author; }
     public Instant getCreatedAt() { return createdAt; }

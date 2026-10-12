@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import vn.edu.ptit.campushub.comment.Comment;
+import vn.edu.ptit.campushub.moderation.ModerationStatus;
 
 public final class PostDtos {
     private PostDtos() {
@@ -44,6 +45,8 @@ public final class PostDtos {
     public record PostView(Long id, String title, String content, PostStatus status,
                            CategoryView category, AuthorView author, Instant createdAt, Instant updatedAt,
                            long reactionCount, long commentCount, boolean reactedByCurrentUser,
+                           ModerationStatus moderationStatus, long pendingReportCount, boolean reportedByMe,
+                           boolean locked,
                            List<CommentView> comments) {
     }
 }

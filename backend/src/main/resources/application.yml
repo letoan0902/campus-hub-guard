@@ -28,3 +28,5 @@ management:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  moderation:
+    auto-review-threshold: ${MODERATION_AUTO_REVIEW_THRESHOLD:3}
