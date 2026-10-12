@@ -34,12 +34,14 @@ public class DemoDataSeeder implements ApplicationRunner {
         Category events = createCategoryIfMissing("Sự kiện", "su-kien");
         Category lost = createCategoryIfMissing("Đồ thất lạc", "do-that-lac");
         createCategoryIfMissing("Hỏi đáp học tập", "hoi-dap");
-        createCategoryIfMissing("Trao đổi đồ dùng", "trao-doi");
+        Category trade = createCategoryIfMissing("Trao đổi đồ dùng", "trao-doi");
         createCategoryIfMissing("Phản ánh", "phan-anh");
         createCategoryIfMissing("Tìm nhóm", "tim-nhom");
 
         User admin = createUserIfMissing("admin", "Quản trị viên", "admin123", Role.ADMIN);
         User student = createUserIfMissing("student", "Nguyễn Minh Anh", "student123", Role.USER);
+        createUserIfMissing("student2", "Trần Thu Hà", "student123", Role.USER);
+        createUserIfMissing("student3", "Phạm Quốc Bảo", "student123", Role.USER);
 
         if (posts.count() == 0) {
             posts.save(new Post("Ngày hội câu lạc bộ sinh viên",
@@ -47,6 +49,12 @@ public class DemoDataSeeder implements ApplicationRunner {
             posts.save(new Post("Tìm ví màu đen gần thư viện",
                     "Mình làm rơi một chiếc ví màu đen vào sáng nay. Bạn nào nhặt được vui lòng bình luận giúp mình.",
                     lost, student));
+            posts.save(new Post("Hội thảo hướng nghiệp công nghệ thông tin",
+                    "Khoa Công nghệ thông tin tổ chức hội thảo hướng nghiệp vào 14h chiều thứ Tư tại hội trường B1. Sinh viên đăng ký tham gia tại văn phòng khoa.",
+                    events, student));
+            posts.save(new Post("Bán laptop gaming giá rẻ, chuyển khoản trước nhận hàng sau",
+                    "Cần thanh lý gấp laptop gaming mới 99%, chỉ 2 triệu đồng. Ai quan tâm hãy chuyển khoản đặt cọc trước 100%, mình sẽ gửi hàng toàn quốc, không gặp mặt trực tiếp. Liên hệ ngay kẻo hết!",
+                    trade, student));
         }
     }
 
