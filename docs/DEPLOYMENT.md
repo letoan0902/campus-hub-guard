@@ -171,3 +171,9 @@ Tên volume thực tế kiểm tra bằng `docker volume ls`.
 | `deploy` lỗi `permission denied` với docker | User chưa thuộc nhóm `docker` hoặc chưa đăng nhập lại | `sudo usermod -aG docker ubuntu`, đăng nhập lại |
 | Backend không lên healthy | Sai mật khẩu DB trong `.env` sau khi volume đã khởi tạo | Xem `docker compose logs backend db`; mật khẩu MySQL chỉ áp dụng khi volume còn trống |
 | Lỗi CORS trên trình duyệt | `CORS_ALLOWED_ORIGINS` không khớp địa chỉ truy cập | Sửa `.env`, chạy lại `deploy.sh` |
+
+## Lưu ý khi chạy trên Oracle Cloud và về CORS
+
+- Máy ảo Oracle Cloud có hai lớp tường lửa: iptables/UFW trong máy (script `deploy/setup-server.sh` đã mở cổng 80) và Security List hoặc Network Security Group của VCN trên giao diện Oracle Cloud. Nếu truy cập từ Internet bị treo (timeout) trong khi `curl http://localhost/actuator/health` trên máy chủ trả 200, hãy thêm Ingress Rule TCP cổng 80 (và 443) với Source CIDR `0.0.0.0/0` trong Security List của subnet.
+- Bước "Kiểm tra sức khỏe sau triển khai" trong workflow gọi tới địa chỉ công khai, nên bước này chỉ xanh khi cổng 80 đã mở ở cả hai lớp. Việc triển khai trên máy chủ vẫn hoàn tất độc lập với bước kiểm tra này (xem `.deploy-info` và `docker compose ps` trên máy chủ).
+- `CORS_ALLOWED_ORIGINS` trong `.env` phải đúng origin mà trình duyệt dùng để mở ứng dụng (ví dụ `http://161.118.239.231`). Trình duyệt gửi header Origin với mọi yêu cầu POST/PATCH, nên nếu origin không khớp thì backend trả 403 dù frontend và backend cùng được phục vụ qua Nginx.

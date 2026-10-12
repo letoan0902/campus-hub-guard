@@ -221,7 +221,7 @@ jobs:
         run: |
           ok=0
           for i in $(seq 1 10); do
-            if curl -fsS "http://$DEPLOY_HOST/actuator/health"; then
+            if curl -fsS -m 10 "http://$DEPLOY_HOST/actuator/health"; then
               echo
               ok=1
               break
@@ -233,7 +233,7 @@ jobs:
             echo "::error::Health check thất bại sau 10 lần thử"
             exit 1
           fi
-          code=$(curl -fsS -o /dev/null -w '%{http_code}' "http://$DEPLOY_HOST/")
+          code=$(curl -fsS -m 10 -o /dev/null -w '%{http_code}' "http://$DEPLOY_HOST/")
           echo "Trang chủ trả về HTTP $code"
           test "$code" = "200"
 
