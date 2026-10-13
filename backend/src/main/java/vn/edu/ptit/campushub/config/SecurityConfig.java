@@ -22,7 +22,8 @@ import vn.edu.ptit.campushub.user.UserRepository;
 @EnableMethodSecurity
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, JsonAuthenticationEntryPoint entryPoint)
+            throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
@@ -33,7 +34,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/posts/*/reports/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/categories", "/api/posts", "/api/posts/**").permitAll()
                         .anyRequest().authenticated())
-                .httpBasic(Customizer.withDefaults())
+                // Trả 401 dạng JSON, không gửi "WWW-Authenticate: Basic" để trình duyệt
+                // không bật hộp thoại đăng nhập của hệ thống (ứng dụng có màn hình đăng nhập riêng)
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint))
+                .httpBasic(basic -> basic.authenticationEntryPoint(entryPoint))
                 .build();
     }
 
