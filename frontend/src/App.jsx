@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, clearCredentials } from './api.js'
+import { api, clearCredentials, hasCredentials } from './api.js'
 import AuthDialog from './components/AuthDialog.jsx'
 import ModerationPage from './components/ModerationPage.jsx'
 import NotificationsMenu from './components/NotificationsMenu.jsx'
@@ -45,7 +45,11 @@ function App() {
 
   useEffect(() => {
     api('/categories').then(setCategories).catch((error) => setNotice(error.message))
-    api('/auth/me').then(setUser).catch(() => clearCredentials())
+    // Chỉ hỏi thông tin người dùng khi phiên đã lưu thông tin đăng nhập,
+    // tránh gọi API được bảo vệ lúc chưa đăng nhập
+    if (hasCredentials()) {
+      api('/auth/me').then(setUser).catch(() => clearCredentials())
+    }
   }, [])
 
   useEffect(() => {

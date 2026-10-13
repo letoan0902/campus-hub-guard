@@ -12,6 +12,11 @@ export function clearCredentials() {
   sessionStorage.removeItem('campusHubCredentials')
 }
 
+// Cho biết phiên hiện tại đã lưu thông tin đăng nhập hay chưa
+export function hasCredentials() {
+  return Boolean(credentials)
+}
+
 export async function api(path, options = {}) {
   const headers = { ...options.headers }
   if (options.body) headers['Content-Type'] = 'application/json'
