@@ -188,7 +188,7 @@ Hướng dẫn thiết lập secrets, setup máy chủ lần đầu, rollback, x
 
 ## Phiên bản bảo vệ
 
-Phiên bản bảo vệ: tag `v1.0.0` (commit `8714b13`) trên nhánh `main` của https://github.com/letoan0902/campus-hub-guard, đang chạy tại http://161.118.239.231 (xem `.deploy-info` trên máy chủ).
+Phiên bản bảo vệ: tag `v1.0.1` trên nhánh `main` của https://github.com/letoan0902/campus-hub-guard (v1.0.0 cộng bản vá bỏ hộp thoại đăng nhập của trình duyệt khi chưa đăng nhập), đang chạy tại http://161.118.239.231 (mã commit ghi trong tệp `.deploy-info` trên máy chủ).
 
 ## Lưu ý bảo mật
 
